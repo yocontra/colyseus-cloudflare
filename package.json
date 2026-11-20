@@ -1,0 +1,65 @@
+{
+  "name": "colyseus-cloudflare",
+  "description": "Colyseus transport and headless PlayCanvas physics for Cloudflare Durable Objects",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    "dist",
+    "THIRD_PARTY_NOTICES.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./physics": "./dist/physics.js",
+    "./ammo": "./dist/ammo.js",
+    "./worker-physics": "./dist/worker-physics.js",
+    "./client": "./dist/packets.js",
+    "./transport": "./dist/socket.js",
+    "./clock": "./dist/clock.js",
+    "./seats": "./dist/seats.js",
+    "./admission": "./dist/admission.js",
+    "./ammo.wasm": "./dist/vendor/ammo.wasm.wasm"
+  },
+  "scripts": {
+    "build": "node build.ts",
+    "prepack": "npm run build",
+    "generate:physics": "node generate-physics.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run typecheck && npm run lint"
+  },
+  "peerDependencies": {
+    "@colyseus/core": "0.18.27",
+    "@colyseus/shared-types": "0.18.3",
+    "playcanvas": "2.23.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "^24.0.0",
+    "typescript": "^6.0.3"
+  },
+  "license": "MIT",
+  "author": "Eric Schoffstall",
+  "homepage": "https://github.com/yocontra/colyseus-cloudflare#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yocontra/colyseus-cloudflare.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yocontra/colyseus-cloudflare/issues"
+  },
+  "keywords": [
+    "colyseus",
+    "cloudflare",
+    "durable-objects",
+    "multiplayer",
+    "playcanvas",
+    "physics"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

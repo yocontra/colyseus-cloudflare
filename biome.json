@@ -1,0 +1,24 @@
+{
+  "files": {
+    "includes": [
+      "**",
+      "!dist",
+      "!example/dist",
+      "!example/.wrangler",
+      "!src/vendor",
+      "!package-lock.json",
+      "!example/package-lock.json"
+    ]
+  },
+  "formatter": { "indentStyle": "space" },
+  "javascript": {
+    "formatter": { "quoteStyle": "single", "semicolons": "asNeeded" }
+  },
+  "linter": { "enabled": true },
+  "overrides": [
+    {
+      "includes": ["example/worker.ts"],
+      "javascript": { "globals": ["WebSocketPair"] }
+    }
+  ]
+}
