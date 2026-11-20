@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 416" role="img" aria-labelledby="title description">
+  <title id="title">Colyseus Cloudflare room architecture</title>
+  <desc id="description">The application Worker routes seat requests and WebSocket upgrades to the owning Durable Object. Once upgraded, the browser SDK sends inputs directly to the object's CloudflareClient and receives state patches. Colyseus owns game state and steps an optional PlayCanvas and Bullet world.</desc>
+  <defs>
+    <linearGradient id="background" x2="0" y2="1">
+      <stop stop-color="#161e2d"/>
+      <stop offset="1" stop-color="#0c1422"/>
+    </linearGradient>
+    <marker id="amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1l7 4-7 4" fill="none" stroke="#ffcd80" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="mint" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M1 1l7 4-7 4" fill="none" stroke="#72ead1" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="violet" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1l7 4-7 4" fill="none" stroke="#c4b5fd" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #f1f5fa; }
+      .title { font-size: 28px; font-weight: 750; }
+      .heading { font-size: 18px; font-weight: 700; }
+      .body { font-size: 14px; fill: #bbc8d9; }
+      .label { font-size: 14px; font-weight: 650; }
+      .line { fill: none; stroke-width: 2; }
+      .amber { fill: #ffcd80; }
+      .mint { fill: #72ead1; }
+      .violet { fill: #c4b5fd; }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="798" height="414" rx="22" fill="url(#background)" stroke="#354359"/>
+  <text x="28" y="43" class="title">One Durable Object owns each room</text>
+
+  <!-- HTTP reaches the owning Object through the application Worker. -->
+  <rect x="272" y="67" width="256" height="63" rx="13" fill="#30271f" stroke="#8a663d"/>
+  <text x="400" y="93" text-anchor="middle" class="heading">Application Worker</text>
+  <text x="400" y="115" text-anchor="middle" class="body">Authenticate and route</text>
+  <path d="M132 173V99H264" class="line" stroke="#ffcd80" marker-end="url(#amber)"/>
+  <text x="146" y="89" class="label amber">Seat and upgrade</text>
+  <path d="M536 99H602V166" class="line" stroke="#ffcd80" marker-end="url(#amber)"/>
+  <text x="615" y="135" class="label amber">Find room by ID</text>
+
+  <!-- The live socket terminates at CloudflareClient. -->
+  <rect x="28" y="173" width="225" height="220" rx="15" fill="#172437" stroke="#414f67"/>
+  <text x="48" y="202" class="heading">Browser</text>
+  <rect x="45" y="218" width="191" height="76" rx="9" fill="#0f1b2b" stroke="#3d526b"/>
+  <text x="61" y="247" class="heading">Colyseus SDK</text>
+  <text x="61" y="272" class="body">Send input, apply patches</text>
+  <rect x="45" y="319" width="191" height="56" rx="9" fill="#211e35" stroke="#635688" stroke-dasharray="4 4"/>
+  <text x="61" y="342" class="label violet">Client prediction</text>
+  <text x="61" y="361" class="body">Shared Ammo Wasm</text>
+
+  <rect x="441" y="173" width="331" height="220" rx="15" fill="#14292d" stroke="#386663"/>
+  <text x="459" y="202" class="heading">Room Durable Object</text>
+  <rect x="458" y="218" width="297" height="76" rx="9" fill="#0c2025" stroke="#3b716d"/>
+  <text x="477" y="247" class="heading">CloudflareClient</text>
+  <text x="477" y="272" class="body">Adapt the socket to Colyseus</text>
+  <path d="M245 240H449" class="line" stroke="#72ead1" marker-end="url(#mint)"/>
+  <text x="347" y="230" text-anchor="middle" class="label mint">Inputs</text>
+  <path d="M449 278H245" class="line" stroke="#72ead1" marker-end="url(#mint)"/>
+  <text x="347" y="269" text-anchor="middle" class="label mint">State patches</text>
+  <text x="347" y="303" text-anchor="middle" class="body">WebSocket after upgrade</text>
+
+  <path d="M524 294V318" class="line" stroke="#72ead1" marker-start="url(#mint)" marker-end="url(#mint)"/>
+  <rect x="458" y="319" width="132" height="56" rx="9" fill="#0c2025" stroke="#3b716d"/>
+  <text x="471" y="342" class="label mint">Colyseus room</text>
+  <text x="471" y="361" class="body">Rules and state</text>
+  <path d="M594 348H612" class="line" stroke="#c4b5fd" marker-end="url(#violet)"/>
+  <rect x="617" y="319" width="138" height="56" rx="9" fill="#211e35" stroke="#635688" stroke-dasharray="4 4"/>
+  <text x="629" y="342" class="label violet">Bullet world</text>
+  <text x="627" y="361" class="body" style="font-size:13px">PlayCanvas + Ammo</text>
+</svg>

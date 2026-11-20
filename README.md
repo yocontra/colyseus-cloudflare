@@ -23,47 +23,20 @@ WebSockets, Colyseus room, and simulation. Colyseus handles room messages and
 state synchronization. Your game defines the room state, validates player
 commands, and decides what runs on each tick.
 
-```mermaid
-flowchart LR
-    Client["Browser · Colyseus SDK"]
-    Worker["Application Worker · identity and routing"]
-    subgraph DO["Durable Object · one room"]
-        Socket["WebSocket adapter"]
-        Room["Colyseus room · game rules and state"]
-        Seats["SQLite · expiring seats"]
-        World["Optional PlayCanvas and Bullet world"]
-        Socket <-->|"Colyseus packets"| Room
-        Room -->|"fixed physics steps"| World
-        World -->|"positions and contacts"| Room
-        Socket --- Seats
-    end
-    Client -->|"Reserve a seat and upgrade"| Worker
-    Worker -->|"Route by room ID"| Socket
-    Socket -->|"State patches and messages"| Client
-```
+### What runs where
 
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant W as Application Worker
-    participant D as Room Durable Object
-    participant R as Colyseus room
-    B->>W: Request a seat
-    W->>D: Route verified identity and room
-    D-->>B: Return the expiring reservation
-    B->>W: Open a WebSocket with the reservation
-    W->>D: Forward the upgrade
-    D->>D: Consume the seat atomically
-    D->>R: Join with CloudflareClient
-    loop While the room is active
-        B->>R: Send input through the socket adapter
-        R->>R: Advance game state and optional physics
-        R-->>B: Send Colyseus state patches
-    end
-    B->>D: Disconnect
-    D->>R: Forward the close
-    Note over D,R: When the room empties, stop its timer and destroy its world
-```
+[![The application Worker routes seat requests and upgrades. The browser then exchanges inputs and state patches with the room Durable Object, which owns Colyseus and optional physics.](https://raw.githubusercontent.com/yocontra/colyseus-cloudflare/main/docs/room-architecture.svg)](https://raw.githubusercontent.com/yocontra/colyseus-cloudflare/main/docs/room-architecture.svg)
+
+Out West serves the same Ammo WebAssembly binary to the room and to browser
+prediction. The server owns the authoritative state.
+
+### When the room uses compute
+
+[![A seat reservation keeps physics idle. The first player starts the simulation. The last player stops the timer and destroys the world.](https://raw.githubusercontent.com/yocontra/colyseus-cloudflare/main/docs/room-lifecycle.svg)](https://raw.githubusercontent.com/yocontra/colyseus-cloudflare/main/docs/room-lifecycle.svg)
+
+Each player needs a valid single-use seat for the WebSocket upgrade. The first
+successful join starts the simulation. An expired or used seat requires a new
+reservation. See the [Worker](example/worker.ts) and [physics room](example/physics-room.ts).
 
 ## Use it in a Worker
 

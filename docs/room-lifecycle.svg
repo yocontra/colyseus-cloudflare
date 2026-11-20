@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 386" role="img" aria-labelledby="title description">
+  <title id="title">From seat reservation to room teardown</title>
+  <desc id="description">A reservation writes a short-lived seat to SQLite and leaves physics idle. A WebSocket upgrade consumes that seat. The first successful join starts the room clock and creates the world. When the last player leaves, stop the timer and destroy the world. An expired or used seat requires a new reservation.</desc>
+  <defs>
+    <linearGradient id="background" x2="0" y2="1">
+      <stop stop-color="#161e2d"/>
+      <stop offset="1" stop-color="#0c1422"/>
+    </linearGradient>
+    <style>
+      text { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; fill: #f1f5fa; }
+      .title { font-size: 28px; font-weight: 750; }
+      .heading { font-size: 18px; font-weight: 700; }
+      .body { font-size: 15px; fill: #bbc8d9; }
+      .label { font-size: 15px; font-weight: 700; }
+      .amber { fill: #ffcd80; }
+      .mint { fill: #72ead1; }
+      .muted { fill: #b7c9df; }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="798" height="384" rx="22" fill="url(#background)" stroke="#354359"/>
+  <text x="28" y="43" class="title">When physics starts and stops</text>
+  <text x="28" y="66" class="body">Room lifecycle in the runnable example</text>
+
+  <path d="M46 126V309" fill="none" stroke="#51637a" stroke-width="2"/>
+  <path d="M42 172l4 5 4-5m-8 94 4 5 4-5" fill="none" stroke="#bbc8d9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="46" cy="112" r="9" fill="#33291e" stroke="#ffcd80" stroke-width="2"/>
+  <circle cx="46" cy="112" r="3" fill="#ffcd80"/>
+  <rect x="70" y="88" width="702" height="80" rx="12" fill="#1d2635" stroke="#4b4650"/>
+  <text x="91" y="119" class="heading">Reserve a seat</text>
+  <text x="91" y="144" class="body">Write a short-lived seat to SQLite.</text>
+  <rect x="606" y="109" width="145" height="35" rx="17" fill="#342a20" stroke="#8a663d"/>
+  <text x="678.5" y="132" text-anchor="middle" class="label amber">Physics idle</text>
+
+  <circle cx="46" cy="205" r="9" fill="#133333" stroke="#72ead1" stroke-width="2"/>
+  <circle cx="46" cy="205" r="3" fill="#72ead1"/>
+  <rect x="70" y="181" width="702" height="80" rx="12" fill="#172b32" stroke="#386663"/>
+  <text x="91" y="212" class="heading">First player joins</text>
+  <text x="91" y="237" class="body">Consume the seat, create the world, and start fixed steps.</text>
+  <rect x="606" y="202" width="145" height="35" rx="17" fill="#153635" stroke="#3b7670"/>
+  <text x="678.5" y="225" text-anchor="middle" class="label mint">Physics active</text>
+
+  <circle cx="46" cy="298" r="9" fill="#233043" stroke="#b7c9df" stroke-width="2"/>
+  <circle cx="46" cy="298" r="3" fill="#b7c9df"/>
+  <rect x="70" y="274" width="702" height="80" rx="12" fill="#1d2635" stroke="#414f67"/>
+  <text x="91" y="305" class="heading">Last player leaves</text>
+  <text x="91" y="330" class="body">Stop the room timer and destroy the physics world.</text>
+  <rect x="606" y="295" width="145" height="35" rx="17" fill="#233043" stroke="#51637a"/>
+  <text x="678.5" y="318" text-anchor="middle" class="label muted">Physics stopped</text>
+</svg>
