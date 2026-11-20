@@ -41,7 +41,10 @@ jobs:
           node-version: "24"
           cache: npm
       - run: npm ci
-      - run: npm pack --pack-destination example
+      - name: Pack the checkout for the example
+        run: |
+          archive=$(npm pack --pack-destination example --json | jq -er '.[0].filename')
+          npm pkg set --prefix example "dependencies.colyseus-cloudflare=file:./$archive"
       - working-directory: example
         run: |
           npm install --ignore-scripts --no-package-lock

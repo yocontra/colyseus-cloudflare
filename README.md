@@ -16,6 +16,14 @@ authoritative physics.
 **Play the demo.** [Out West](https://contra.io/experiments/out-west/) uses the
 library in Frontier multiplayer. [Open Frontier](https://contra.io/experiments/out-west/frontier/).
 
+## Install
+
+```sh
+npm install colyseus-cloudflare
+```
+
+Use Node 24 or newer. The package exports ESM and TypeScript declarations.
+
 ## How it works
 
 The application Worker routes each room to a Durable Object. The Object owns the
@@ -88,17 +96,14 @@ queued inputs.
 | [Physics world](https://github.com/yocontra/yocontra.github.io/blob/master/src/experiments/out-west/runtime/world.ts)           | Builds Frontier's bodies and collisions on the shared PlayCanvas physics wrapper.                       |
 | [Browser session](https://github.com/yocontra/yocontra.github.io/blob/master/src/experiments/out-west/client/remote-session.ts) | Connects the Colyseus SDK and batches reliable player inputs.                                           |
 
-## Build and run the example
+## Run the example
 
-Use Node 24 or newer. The package emits ESM and TypeScript declarations.
+From the repository root, install the [example](example/)'s dependencies from npm
+and start Wrangler locally.
 
 ```sh
-git clone https://github.com/yocontra/colyseus-cloudflare.git
-cd colyseus-cloudflare
-npm ci
-npm pack --pack-destination example
 cd example
-npm install --ignore-scripts --no-package-lock
+npm install
 npm run dev
 ```
 
@@ -106,9 +111,6 @@ From a second terminal in `example/`, run `npm run smoke`. Three SDK clients
 join two rooms. The test checks that a seat reservation leaves physics idle,
 players see a box land and hop, and the second room keeps running after the
 first room empties. The example uses local test identities.
-
-To use the tarball in your own project, run
-`npm install /path/to/colyseus-cloudflare-0.1.0.tgz` from that project.
 
 ## Keep rooms within your budget
 

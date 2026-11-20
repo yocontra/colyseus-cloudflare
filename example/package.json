@@ -9,11 +9,11 @@
     "bundle": "wrangler deploy --dry-run --outdir dist --minify"
   },
   "dependencies": {
-    "colyseus-cloudflare": "file:./colyseus-cloudflare-0.1.0.tgz",
     "@colyseus/core": "0.18.27",
     "@colyseus/schema": "5.0.45",
     "@colyseus/sdk": "0.18.9",
     "@colyseus/shared-types": "0.18.3",
+    "colyseus-cloudflare": "0.1.0",
     "playcanvas": "2.23.3"
   },
   "devDependencies": {
