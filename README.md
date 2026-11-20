@@ -70,6 +70,11 @@ The in-memory Colyseus room and Bullet world must be recreated.
 | `colyseus-cloudflare/ammo.wasm`      | Serve the same Ammo binary to browser prediction code.                                                           |
 | `colyseus-cloudflare/client`         | Optionally batch two reliable SDK input packets into one socket frame. Use with the matching server adapter.     |
 
+Use `room.input({ type: InputSchema, mode: 'reliable' })` for SDK input streams
+over this transport. The adapter rejects unreliable input frames. A client has
+15 seconds to acknowledge the join and can queue up to 256 messages or 1 MiB
+before it joins.
+
 The input batcher sends pairs of eligible packets at once and flushes a lone
 packet after 100 ms. Control packets pass through immediately and can overtake
 queued inputs.

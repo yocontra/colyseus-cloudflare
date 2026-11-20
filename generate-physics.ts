@@ -1,17 +1,32 @@
 /** Reproduce the pinned engine's generated Ammo assets. Run: npm run generate:physics */
+import { createHash } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 
-const engine = 'https://raw.githubusercontent.com/playcanvas/engine/v2.23.3'
-async function download(path: string) {
+// PlayCanvas v2.23.3, pinned to its exact upstream commit.
+const engine =
+  'https://raw.githubusercontent.com/playcanvas/engine/b7655d8fccc1284678af8f098b26b0725e20dd3a/examples/assets/wasm/ammo'
+async function download(path: string, sha256: string) {
   const response = await fetch(`${engine}/${path}`)
   if (!response.ok) {
     throw new Error(`Physics source download failed: ${path}`)
   }
-  return response
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  if (createHash('sha256').update(bytes).digest('hex') !== sha256) {
+    throw new Error(`Physics source integrity check failed: ${path}`)
+  }
+  return bytes
 }
-const upstream = await (
-  await download('examples/assets/wasm/ammo/ammo.wasm.js')
-).text()
+const [factoryBytes, wasm] = await Promise.all([
+  download(
+    'ammo.wasm.js',
+    '8481c5250507d3f2c0cecff7cc55a34727f52f96590a2304556a43ca4cf4e0b3',
+  ),
+  download(
+    'ammo.wasm.wasm',
+    'de36b300b25d244a79ae56ef0e7fee5efe2a3281f346a134945eef0b2fbaa5d8',
+  ),
+])
+const upstream = new TextDecoder().decode(factoryBytes)
 const nodeEnvironment =
   'fa="object"==typeof process&&"object"==typeof process.versions&&"string"==typeof process.versions.node'
 const trampoline = 'new WebAssembly.Module(new Uint8Array(c))'
@@ -39,13 +54,7 @@ await writeFile(
 // Changes: web environment, ESM export, optional precompiled callback trampoline.
 ${factory}\nexport default Ammo\n`,
 )
-const wasm = await (
-  await download('examples/assets/wasm/ammo/ammo.wasm.wasm')
-).arrayBuffer()
-await writeFile(
-  new URL('./src/vendor/ammo.wasm.wasm', import.meta.url),
-  new Uint8Array(wasm),
-)
+await writeFile(new URL('./src/vendor/ammo.wasm.wasm', import.meta.url), wasm)
 // Emscripten addFunction trampoline: import e.f(i32,f32)->void and export it as f.
 // Each JS callback gets its own Instance; table slots remain managed by Ammo.addFunction/removeFunction.
 await writeFile(
