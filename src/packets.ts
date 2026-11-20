@@ -3,6 +3,9 @@ import { Protocol } from '@colyseus/shared-types'
 
 const BATCH = 254
 const MAX_PACKET = 2048
+function isReliableInput(packet: Uint8Array) {
+  return ((packet[0] ?? 0) & 63) === Protocol.ROOM_INPUT_RELIABLE
+}
 export function packPackets(packets: readonly Uint8Array[]): Uint8Array {
   if (
     packets.length === 0 ||
@@ -10,6 +13,9 @@ export function packPackets(packets: readonly Uint8Array[]): Uint8Array {
     packets.some((packet) => packet.length === 0 || packet.length > MAX_PACKET)
   ) {
     throw new Error('Invalid packet batch')
+  }
+  if (!packets.every(isReliableInput)) {
+    throw new Error('Only input packets may be batched')
   }
   const output = new Uint8Array(
     2 + packets.reduce((size, packet) => size + 2 + packet.length, 0),
@@ -50,7 +56,7 @@ export function unpackPackets(data: Uint8Array): readonly Uint8Array[] {
       throw new Error('Invalid packet length')
     }
     const packet = data.subarray(offset, offset + length)
-    if (((packet[0] ?? 0) & 63) !== Protocol.ROOM_INPUT_RELIABLE) {
+    if (!isReliableInput(packet)) {
       throw new Error('Only input packets may be batched')
     }
     packets.push(packet)
@@ -69,6 +75,7 @@ export function batchInputs(connection: PacketConnection) {
   const send = connection.send
   let queue: Uint8Array[] = []
   let timer: ReturnType<typeof setTimeout> | undefined
+  let disposed = false
   function flush() {
     if (timer !== undefined) {
       clearTimeout(timer)
@@ -81,7 +88,12 @@ export function batchInputs(connection: PacketConnection) {
     }
   }
   connection.send = (packet) => {
-    if (((packet[0] ?? 0) & 63) !== Protocol.ROOM_INPUT_RELIABLE) {
+    if (!isReliableInput(packet)) {
+      send.call(connection, packet)
+      return
+    }
+    if (packet.length > MAX_PACKET) {
+      flush()
       send.call(connection, packet)
       return
     }
@@ -95,9 +107,14 @@ export function batchInputs(connection: PacketConnection) {
   return {
     flush,
     dispose() {
+      if (disposed) {
+        return
+      }
+      disposed = true
       if (timer !== undefined) {
         clearTimeout(timer)
       }
+      timer = undefined
       queue = []
       connection.send = send
     },

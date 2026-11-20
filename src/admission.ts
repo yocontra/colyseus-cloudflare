@@ -51,22 +51,15 @@ export class AdmissionLeases {
   }
   /** Capacity preflight consumes no room seconds; actual socket joins still acquire atomically. */
   available(now = Date.now()): LeaseGrant {
-    const day = new Date(now).toISOString().slice(0, 10)
-    const saved = this.storage.sql
-      .exec<{ data: string }>('SELECT data FROM room_leases WHERE id=1')
-      .toArray()[0]
-    const state: Ledger | undefined = saved
-      ? (JSON.parse(saved.data) as Ledger)
-      : undefined
-    const current = state?.day === day ? state : undefined
-    const leases = Object.values(current?.leases ?? {})
+    const state = this.readLedger(now)
+    const leases = Object.values(state.leases)
     return {
       ok:
-        (current?.seconds ?? 0) +
+        state.seconds +
           leases.reduce((sum, lease) => sum + lease.seconds, 0) +
           this.limits.leaseSeconds <=
           this.limits.dailyActiveSeconds &&
-        (current?.messages ?? 0) +
+        state.messages +
           leases.reduce((sum, lease) => sum + lease.messages, 0) +
           this.reservedMessages <=
           this.limits.dailyWebSocketMessages,
@@ -80,29 +73,19 @@ export class AdmissionLeases {
     finish = false,
     now = Date.now(),
   ): LeaseGrant {
+    if (!Number.isSafeInteger(messages) || messages < 0) {
+      throw new RangeError('Message count must be a nonnegative safe integer')
+    }
     return this.storage.transactionSync(() => {
-      const day = new Date(now).toISOString().slice(0, 10)
-      const saved = this.storage.sql
-        .exec<{ data: string }>('SELECT data FROM room_leases WHERE id=1')
-        .toArray()[0]
-      let state: Ledger = saved
-        ? (JSON.parse(saved.data) as Ledger)
-        : { day, seconds: 0, messages: 0, leases: {} }
+      const state = this.readLedger(now)
       const previous = Object.hasOwn(state.leases, id)
         ? state.leases[id]
         : undefined
-      if (state.day !== day) {
-        state = { day, seconds: 0, messages: 0, leases: {} }
-        if (previous) {
-          const midnight = Date.parse(`${day}T00:00:00Z`)
-          state.seconds = Math.ceil(
-            (now - Math.max(midnight, previous.issued)) / 1000,
-          )
-          state.messages = Math.max(0, messages)
-        }
-      } else if (previous) {
-        state.seconds += Math.max(0, Math.ceil((now - previous.issued) / 1000))
-        state.messages += Math.max(0, messages)
+      if (previous) {
+        const midnight = Date.parse(`${state.day}T00:00:00Z`)
+        const start = Math.max(midnight, previous.issued)
+        state.seconds += Math.max(0, Math.ceil((now - start) / 1000))
+        state.messages += messages
         delete state.leases[id]
       }
       let reservedSeconds = 0
@@ -137,5 +120,22 @@ export class AdmissionLeases {
         renewAfterTicks: this.limits.renewAfterTicks,
       }
     })
+  }
+  private readLedger(now: number): Ledger {
+    const day = new Date(now).toISOString().slice(0, 10)
+    const saved = this.storage.sql
+      .exec<{ data: string }>('SELECT data FROM room_leases WHERE id=1')
+      .toArray()[0]
+    const state = saved ? (JSON.parse(saved.data) as Ledger) : undefined
+    if (state?.day === day) {
+      return state
+    }
+    const midnight = Date.parse(`${day}T00:00:00Z`)
+    const leases = Object.fromEntries(
+      Object.entries(state?.leases ?? {}).filter(
+        ([, lease]) => lease.issued + lease.seconds * 1000 > midnight,
+      ),
+    )
+    return { day, seconds: 0, messages: 0, leases }
   }
 }

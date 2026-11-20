@@ -54,12 +54,13 @@ export class CloudflareClient
   raw(data: Uint8Array, _options?: ISendOptions, cb?: (error?: Error) => void) {
     try {
       this.ws.send(Uint8Array.from(data))
-      this.delivered(data.byteLength)
-      cb?.()
     } catch (error) {
-      cb?.(error instanceof Error ? error : new Error(String(error)))
       this.ws.close(1011, 'Connection unavailable')
+      cb?.(error instanceof Error ? error : new Error(String(error)))
+      return
     }
+    this.delivered(data.byteLength)
+    cb?.()
   }
   enqueueRaw(data: Uint8Array, options?: ISendOptions) {
     enqueueClientRaw(this, data, options)
@@ -109,15 +110,17 @@ export class CloudflareClient
       this.leave(1003, 'Binary frames required')
       return
     }
+    let packets: readonly Uint8Array[]
     try {
-      const packets = unpackPackets(new Uint8Array(data))
-      // The timestamp is observed on incoming I/O, unlike a quiet Workers timer clock.
-      this.emit('activity', now)
-      for (const packet of packets) {
-        this.emit('message', packet)
-      }
+      packets = unpackPackets(new Uint8Array(data))
     } catch {
       this.leave(1009, 'Invalid frame')
+      return
+    }
+    // The timestamp is observed on incoming I/O, unlike a quiet Workers timer clock.
+    this.emit('activity', now)
+    for (const packet of packets) {
+      this.emit('message', packet)
     }
   }
   disconnected(code: number, reason: string) {

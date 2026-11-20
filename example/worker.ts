@@ -161,9 +161,15 @@ export default {
     if (!(roomId || (name && VALID_NAME.test(name)))) {
       return new Response('Room required', { status: 400 })
     }
-    const id = roomId
-      ? env.ROOMS.idFromString(roomId)
-      : env.ROOMS.idFromName(name ?? '')
+    if (!roomId) {
+      return env.ROOMS.get(env.ROOMS.idFromName(name ?? '')).fetch(request)
+    }
+    let id: DurableObjectId
+    try {
+      id = env.ROOMS.idFromString(roomId)
+    } catch {
+      return new Response('Invalid room ID', { status: 400 })
+    }
     return env.ROOMS.get(id).fetch(request)
   },
 } satisfies ExportedHandler<ExampleEnv>

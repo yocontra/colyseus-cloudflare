@@ -75,6 +75,12 @@ function observe(
   })
 }
 
+await it('rejects a room ID from outside the namespace', async () => {
+  const url = new URL(`/native/${'f'.repeat(64)}`, base)
+  const response = await fetch(url, { signal: AbortSignal.timeout(5000) })
+  assert.equal(response.status, 400)
+})
+
 await it('autonomous Bullet state, remote input, room isolation and disposal', {
   timeout: 15_000,
 }, async () => {

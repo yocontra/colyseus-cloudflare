@@ -9,95 +9,147 @@
 
 </div>
 
-This independent TypeScript package adapts Colyseus to Cloudflare Workers and provides optional headless PlayCanvas and Ammo/Bullet physics. [Out West](https://contra.io/experiments/out-west/) uses the same transport and physics code in production. Browser prediction loads the same Ammo binary.
+This independent TypeScript adapter connects Colyseus rooms to Cloudflare
+Durable Objects. Add headless PlayCanvas and Ammo/Bullet when the server needs
+authoritative physics.
 
-## Install
+**Play the demo.** [Out West](https://contra.io/experiments/out-west/) uses the
+library in Frontier multiplayer. [Open Frontier](https://contra.io/experiments/out-west/frontier/).
 
-Build and install a tarball from this repository with Node 24 or newer.
+## How it works
+
+The application Worker routes each room to a Durable Object. The Object owns the
+WebSockets, Colyseus room, and simulation. Colyseus handles room messages and
+state synchronization. Your game defines the room state, validates player
+commands, and decides what runs on each tick.
+
+```mermaid
+flowchart LR
+    Client["Browser · Colyseus SDK"]
+    Worker["Application Worker · identity and routing"]
+    subgraph DO["Durable Object · one room"]
+        Socket["WebSocket adapter"]
+        Room["Colyseus room · game rules and state"]
+        Seats["SQLite · expiring seats"]
+        World["Optional PlayCanvas and Bullet world"]
+        Socket <-->|"Colyseus packets"| Room
+        Room -->|"fixed physics steps"| World
+        World -->|"positions and contacts"| Room
+        Socket --- Seats
+    end
+    Client -->|"Reserve a seat and upgrade"| Worker
+    Worker -->|"Route by room ID"| Socket
+    Socket -->|"State patches and messages"| Client
+```
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant W as Application Worker
+    participant D as Room Durable Object
+    participant R as Colyseus room
+    B->>W: Request a seat
+    W->>D: Route verified identity and room
+    D-->>B: Return the expiring reservation
+    B->>W: Open a WebSocket with the reservation
+    W->>D: Forward the upgrade
+    D->>D: Consume the seat atomically
+    D->>R: Join with CloudflareClient
+    loop While the room is active
+        B->>R: Send input through the socket adapter
+        R->>R: Advance game state and optional physics
+        R-->>B: Send Colyseus state patches
+    end
+    B->>D: Disconnect
+    D->>R: Forward the close
+    Note over D,R: When the room empties, stop its timer and destroy its world
+```
+
+## Use it in a Worker
+
+1. Bind a SQLite-backed Durable Object namespace in Wrangler with
+   `new_sqlite_classes` and enable `nodejs_compat`.
+2. Authenticate the browser in your Worker. Route seats and upgrades to the
+   same Object. Use `DurableSeats` if you want SQLite-backed, single-use
+   reservations.
+3. In the Object, wrap the server socket with `CloudflareClient` and join it
+   with Colyseus. Forward message events to `dispatch()` and socket closure
+   to `disconnected()`.
+4. When your room runs physics, load the Worker Wasm modules once with
+   `initializeWorkerAmmo()`. Create a separate world for each active room,
+   step it with a fixed timestep, and call `app.destroy()` when the room
+   ends. See the [Worker](example/worker.ts), [physics room](example/physics-room.ts),
+   and [Wrangler configuration](example/wrangler.jsonc).
+
+The application owns authentication, room routing, game rules, and admission
+policy. If a Durable Object restarts, clients need a new authenticated join.
+The in-memory Colyseus room and Bullet world must be recreated.
+
+| Package export                       | Purpose                                                                                                          |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `colyseus-cloudflare/transport`      | Adapt a Durable Object WebSocket to a Colyseus server client.                                                    |
+| `colyseus-cloudflare/clock`          | Give Colyseus a clock that advances during quiet Worker timer callbacks. Match `stepMs` to your simulation tick. |
+| `colyseus-cloudflare/seats`          | Issue and consume expiring seat reservations. Schedule an alarm from `nextExpiry()` and run `expire()` on wake.  |
+| `colyseus-cloudflare/admission`      | Reserve budget for room duration and inbound frames in a shared SQLite ledger.                                   |
+| `colyseus-cloudflare/worker-physics` | Load precompiled Ammo and callback Wasm modules in Wrangler.                                                     |
+| `colyseus-cloudflare/physics`        | Create a headless PlayCanvas application and a room-owned Bullet world.                                          |
+| `colyseus-cloudflare/ammo`           | Initialize Ammo with a compiled module or load it from a URL.                                                    |
+| `colyseus-cloudflare/ammo.wasm`      | Serve the same Ammo binary to browser prediction code.                                                           |
+| `colyseus-cloudflare/client`         | Optionally batch two reliable SDK input packets into one socket frame. Use with the matching server adapter.     |
+
+The input batcher sends pairs of eligible packets at once and flushes a lone
+packet after 100 ms. Control packets pass through immediately and can overtake
+queued inputs.
+
+## Out West integration
+
+| In Out West                                                                                                                     | What it does                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [Town lobby](https://github.com/yocontra/yocontra.github.io/blob/master/api/src/town/lobby.ts)                                  | Authenticates the connection, consumes its seat, and connects the Durable Object WebSocket to Colyseus. |
+| [Server room](https://github.com/yocontra/yocontra.github.io/blob/master/api/src/game/room.ts)                                  | Loads Worker Ammo and advances the authoritative Frontier simulation.                                   |
+| [Physics world](https://github.com/yocontra/yocontra.github.io/blob/master/src/experiments/out-west/runtime/world.ts)           | Builds Frontier's bodies and collisions on the shared PlayCanvas physics wrapper.                       |
+| [Browser session](https://github.com/yocontra/yocontra.github.io/blob/master/src/experiments/out-west/client/remote-session.ts) | Connects the Colyseus SDK and batches reliable player inputs.                                           |
+
+## Build and run the example
+
+Use Node 24 or newer. The package emits ESM and TypeScript declarations.
 
 ```sh
 git clone https://github.com/yocontra/colyseus-cloudflare.git
 cd colyseus-cloudflare
 npm ci
-npm pack
-```
-
-Install the tarball from your application directory with
-`npm install /path/to/colyseus-cloudflare-0.1.0.tgz`.
-
-## Package exports
-
-- `colyseus-cloudflare/worker-physics` loads the compiled Ammo and callback modules in Wrangler.
-- `colyseus-cloudflare/physics` creates a headless PlayCanvas application and its Bullet world.
-  Add entities and rigid bodies to that application. Call `physics.step(seconds)` on fixed steps.
-  Call `app.destroy()` when the room ends.
-- `colyseus-cloudflare/transport` adapts a Durable Object WebSocket to a Colyseus server client.
-  Call `dispatch` on binary input and `disconnected` on close. The host owns room routing and
-  authenticates players before joining them.
-- `colyseus-cloudflare/clock` gives Colyseus a fixed-step clock that advances in Workers timer
-  callbacks even when the host clock has no new I/O to observe. Match `stepMs` to the room tick.
-- `colyseus-cloudflare/client` can batch two native reliable input packets in one WebSocket
-  frame. Dispose the batcher on leave. Other Colyseus packets pass through unchanged.
-- `colyseus-cloudflare/ammo` loads Ammo from a compiled module or a URL in normal JavaScript
-  runtimes. Serve the file exported as `colyseus-cloudflare/ammo.wasm` for browser prediction.
-
-The package emits ESM and TypeScript declarations. It uses the pinned Colyseus and PlayCanvas
-versions in `package.json`. Use Node 24 for package build scripts and `nodejs_compat` in Wrangler.
-Run `npm pack` in this directory to build an installable tarball. Third-party attribution is in
-[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
-
-## Run the standalone example
-
-From the package source directory, build and install the tarball with Node 24 and npm.
-
-```sh
-npm ci
-npm pack --dry-run
 npm pack --pack-destination example
 cd example
 npm install --ignore-scripts --no-package-lock
-npm run check
-npm run bundle
 npm run dev
 ```
 
-From a second terminal in `example/`, run `npm run smoke`. The smoke opens three Colyseus
-clients across two Durable Objects. Both players in the first room see the other box fall.
-One player sends a hop command and the other receives its new position. The second room
-keeps running after the first empties and releases its world. The reservation check verifies
-that the first seat allocates no physics.
+From a second terminal in `example/`, run `npm run smoke`. Three SDK clients
+join two rooms. The test checks that a seat reservation leaves physics idle,
+players see a box land and hop, and the second room keeps running after the
+first room empties. The example uses local test identities.
 
-The example installs from the tarball and uses registry PlayCanvas without the Out West patches.
-It has no production bindings or accounts. The demo accepts local player names. Authenticate
-players and derive their identities on the server before exposing a public endpoint.
+To use the tarball in your own project, run
+`npm install /path/to/colyseus-cloudflare-0.1.0.tgz` from that project.
 
-## Admission and room lifetime
+## Keep rooms within your budget
 
-Use SQLite-backed Durable Objects with a `new_sqlite_classes` migration on Workers Free.
+Start physics and timers when a player joins. Stop them after the last player
+leaves. A running room can consume Durable Object duration even when its sockets
+are quiet.
 
-- `colyseus-cloudflare/seats` stores short-lived Colyseus seat metadata in a SQLite-backed
-  Durable Object. Seat consumption checks the authenticated account and room and deletes the
-  seat atomically. The caller schedules an alarm for `nextExpiry()` and calls `expire()` on wake.
-- `colyseus-cloudflare/admission` implements a shared daily allowance for active room time
-  and inbound frames. Store the ledger in a single SQLite-backed Durable Object, grant and renew
-  a lease independently for each live room, and release it with the final count. A vanished room's
-  reserved quota stays charged for the day. Close a room if its lease fails to renew.
-- Route requests to the owning Durable Object before using Colyseus's LocalDriver.
-  Each room owns its own Bullet world. Use an authenticated seat again after an isolate restart.
-  In-memory physics and pending sockets cannot restore a match on their own.
-
-Cloudflare's published Free allowance for Durable Objects is 100,000 billed requests and
-13,000 GB-s of duration per day. Incoming WebSocket messages count at 20:1 toward Durable
-Object request billing. That ratio does not apply to the separate Worker request limit.
-At the documented 0.125 GB-s per active object-second, the duration allowance equates to
-about 104,000 active room-seconds per day before other account usage. A room with a live timer uses
-duration even when its sockets are quiet. The package and local example exercise the runtime
-and room lifecycle. Production capacity depends on traffic, match duration, physics work, and
-other usage on your account.
-[Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
+To share a budget across rooms, keep `AdmissionLeases` in a single SQLite-backed
+Object. Reserve and renew a lease per live room, report its final use when it
+closes, and stop a room when renewal is denied. Unreported leases retain their
+reservation for the day. Leases that cross midnight UTC carry their reservations
+into the next day. Reported seconds count from midnight and the message count
+since the last report is charged to the new day. The ledger tracks the
+application's configured allowance. Cloudflare meters the account separately.
+[Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/) ·
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for checks and
-[SECURITY.md](SECURITY.md) for private reporting.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks, [SECURITY.md](SECURITY.md) for
+private reporting, and [third-party notices](THIRD_PARTY_NOTICES.md) for the
+bundled Ammo assets.

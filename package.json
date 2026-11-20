@@ -20,7 +20,8 @@
     "./clock": "./dist/clock.js",
     "./seats": "./dist/seats.js",
     "./admission": "./dist/admission.js",
-    "./ammo.wasm": "./dist/vendor/ammo.wasm.wasm"
+    "./ammo.wasm": "./dist/vendor/ammo.wasm.wasm",
+    "./physics-callback.wasm": "./dist/vendor/physics-callback.wasm"
   },
   "scripts": {
     "build": "node build.ts",
@@ -29,7 +30,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "check": "npm run typecheck && npm run lint"
+    "test": "node --test test/*.test.ts",
+    "check": "npm run typecheck && npm run lint && npm test"
   },
   "peerDependencies": {
     "@colyseus/core": "0.18.27",
